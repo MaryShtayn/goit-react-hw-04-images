@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { getImages } from './components/service/getImages';
 
 import { Container } from './components/Styles/Styles';
@@ -9,90 +9,78 @@ import { ButtonLoadMore } from './components/Button/Button';
 import { ImageModal } from './components/Modal/Modal';
 import { ErrorMessage } from './components/ErrorMessage/ErrorMessage';
 
-export class App extends Component {
-  state = {
-    textSearch: '',
-    images: [],
-    totalHits: 0,
-    error: '',
-    page: 1,
-    isLoading: false,
-    showModal: false,
-    urlLarge: '',
-  };
+export const App = () => {
+  const [textSearch, setTextSearch] = useState('');
+  const [images, setImages] = useState([]);
+  const [totalHits, setTotalHits] = useState(0);
+  const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [urlLarge, setUrlLarge] = useState('');
+  useEffect(() => {
+    if (!textSearch) return;
 
-  componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.textSearch !== this.state.textSearch ||
-      prevState.page !== this.state.page
-    ) {
-      this.setState({ isLoading: true });
-
+    const fetchImages = async () => {
       try {
-        getImages(this.state.textSearch, this.state.page).then(data => {
-          this.setState(prevState => ({
-            images: [...prevState.images, ...data.hits],
-            totalHits: data.totalHits,
-          }));
-          if (data.total === 0) {
-            this.setState({
-              error:
-                'Sorry, there are no images matching your search query. Please try again.',
-            });
-          }
-        });
-      } catch (error) {
-        this.setState({ error: error.message });
-      } finally {
-        this.setState({ isLoading: false });
-      }
-    }
-  }
+        setIsLoading(true);
+        const data = await getImages(textSearch, page);
+        setImages(images => [...images, ...data.hits]);
+        setTotalHits(data.totalHits);
 
-  handleSubmit = textSearch => {
-    if (textSearch === this.state.textSearch && this.state.page === 1) {
+        if (data.total === 0) {
+          setError(
+            'Sorry, there are no images matching your search query. Please try again.'
+          );
+        }
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchImages();
+  }, [textSearch, page]);
+
+  const handleSubmit = textSearchValue => {
+    if (textSearchValue === textSearch && page === 1) {
       alert('Images already showed');
       return;
     }
-    this.setState({ textSearch, error: '', page: 1, totalHits: 0, images: [] });
+    setTextSearch(textSearchValue);
+    setError('');
+    setPage(1);
+    setTotalHits(0);
+    setImages([]);
   };
 
-  loadMore = () => {
-    this.setState({ page: this.state.page + 1 });
+  const loadMore = () => {
+    setPage(page + 1);
   };
 
-  onCloseModal = () => {
-    this.setState({ showModal: false, urlLarge: '' });
+  const onCloseModal = () => {
+    setShowModal(false);
+    setUrlLarge('');
   };
 
-  onOpenModal = url => {
-    this.setState({ showModal: true, urlLarge: url });
+  const onOpenModal = url => {
+    setShowModal(true);
+    setUrlLarge(url);
   };
 
-  render() {
-    return (
-      <Container>
-        <Searchbar onSearch={this.handleSubmit} />
+  return (
+    <Container>
+      <Searchbar onSearch={handleSubmit} />
 
-        {this.state.isLoading && <Loader />}
+      {isLoading && <Loader />}
 
-        <ImageGallery data={this.state.images} onOpenModal={this.onOpenModal} />
+      <ImageGallery data={images} onOpenModal={onOpenModal} />
 
-        {this.state.page * 12 <= this.state.totalHits && (
-          <ButtonLoadMore onClick={this.loadMore} />
-        )}
+      {page * 12 <= totalHits && <ButtonLoadMore onClick={loadMore} />}
 
-        {Boolean(this.state.error.length) && (
-          <ErrorMessage message={this.state.error} />
-        )}
+      {Boolean(error.length) && <ErrorMessage message={error} />}
 
-        {this.state.showModal && (
-          <ImageModal
-            onCloseModal={this.onCloseModal}
-            url={this.state.urlLarge}
-          />
-        )}
-      </Container>
-    );
-  }
-}
+      {showModal && <ImageModal onCloseModal={onCloseModal} url={urlLarge} />}
+    </Container>
+  );
+};
